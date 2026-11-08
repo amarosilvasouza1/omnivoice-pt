@@ -97,6 +97,13 @@ typedef struct {
     int32_t *tokens; /* [C * T] */
 } ov_prompt;
 
+/* Limites do cabeçalho do .ovprompt. O arquivo pode vir de um upload pela
+ * API, então nada nele é usado como tamanho sem passar por aqui: um C ou T
+ * forjado viraria malloc gigante ou leitura fora do buffer. */
+#define OV_PROMPT_MAX_CODEBOOKS 64
+#define OV_PROMPT_MAX_FRAMES 3000 /* 120 s a 25 Hz */
+#define OV_PROMPT_MAX_TEXT 4096
+
 static ov_prompt *prompt_load(const char *path) {
     FILE *f = fopen(path, "rb");
     if (!f) {
@@ -114,31 +121,66 @@ static ov_prompt *prompt_load(const char *path) {
         fclose(f);
         return NULL;
     }
+    if (ver != 1 || C < 1 || C > OV_PROMPT_MAX_CODEBOOKS || T < 1 ||
+        T > OV_PROMPT_MAX_FRAMES || text_len > OV_PROMPT_MAX_TEXT ||
+        !isfinite(rms) || rms < 0.0f) {
+        fprintf(stderr,
+                "prompt fora dos limites (ver=%u C=%u T=%u texto=%u)\n", ver,
+                C, T, text_len);
+        fclose(f);
+        return NULL;
+    }
+    const size_t n = (size_t)C * T;
+    uint16_t *tmp = NULL;
     ov_prompt *p = calloc(1, sizeof(*p));
+    if (!p) goto fail;
     p->n_codebook = (int32_t)C;
     p->n_frames = (int32_t)T;
     p->ref_rms = rms;
     p->ref_text = malloc((size_t)text_len + 1);
+    tmp = malloc(n * sizeof(uint16_t));
+    p->tokens = malloc(n * sizeof(int32_t));
+    if (!p->ref_text || !tmp || !p->tokens) goto fail;
     if (fread(p->ref_text, 1, text_len, f) != text_len) goto fail;
     p->ref_text[text_len] = 0;
-    {
-        uint16_t *tmp = malloc((size_t)C * T * 2);
-        if (fread(tmp, 2, (size_t)C * T, f) != (size_t)C * T) {
-            free(tmp);
-            goto fail;
-        }
-        p->tokens = malloc((size_t)C * T * 4);
-        for (size_t i = 0; i < (size_t)C * T; i++) p->tokens[i] = tmp[i];
-        free(tmp);
-    }
+    if (memchr(p->ref_text, 0, text_len) != NULL) goto fail; /* NUL no meio */
+    if (fread(tmp, sizeof(uint16_t), n, f) != n) goto fail;
+    for (size_t i = 0; i < n; i++) p->tokens[i] = tmp[i];
+    free(tmp);
     fclose(f);
     return p;
 fail:
-    fprintf(stderr, "prompt truncado\n");
+    fprintf(stderr, "prompt truncado ou invalido: %s\n", path);
     fclose(f);
-    free(p->ref_text);
-    free(p);
+    free(tmp);
+    if (p) {
+        free(p->ref_text);
+        free(p->tokens);
+        free(p);
+    }
     return NULL;
+}
+
+/* O prompt precisa bater com o modelo carregado: o prefixo é montado com o
+ * n_codebook DO MODELO, e cada token vira índice da tabela de embeddings de
+ * áudio. Um prompt com menos codebooks ou com token >= audio_vocab leria
+ * fora da memória. */
+static int prompt_matches_model(const ov_prompt *vp, const ov_model_params *p,
+                                char *err, size_t err_cap) {
+    if (vp->n_codebook != p->n_codebook) {
+        snprintf(err, err_cap, "voz com %d codebooks, modelo espera %d",
+                 vp->n_codebook, p->n_codebook);
+        return 0;
+    }
+    const size_t n = (size_t)vp->n_codebook * vp->n_frames;
+    for (size_t i = 0; i < n; i++) {
+        if (vp->tokens[i] < 0 || vp->tokens[i] >= p->audio_vocab) {
+            snprintf(err, err_cap, "voz com token de audio invalido (%d)",
+                     vp->tokens[i]);
+            return 0;
+        }
+    }
+    return 1;
 }
 
 static void prompt_free(ov_prompt *p) {
@@ -259,6 +301,10 @@ static gen_result generate_one(ov_tokenizer *tk, ov_model *m, ov_decoder *dec,
                      prompt_path);
             return r;
         }
+        if (!prompt_matches_model(vp, p, r.err, sizeof(r.err))) {
+            prompt_free(vp);
+            return r;
+        }
     }
 
     char style[256];
@@ -268,12 +314,20 @@ static gen_result generate_one(ov_tokenizer *tk, ov_model *m, ov_decoder *dec,
              vp ? "<|denoise|>" : "");
 
     char full_text[8192];
+    int n_full;
     if (vp) {
-        snprintf(full_text, sizeof(full_text),
-                 "<|text_start|>%s %s<|text_end|>", vp->ref_text, text);
+        n_full = snprintf(full_text, sizeof(full_text),
+                          "<|text_start|>%s %s<|text_end|>", vp->ref_text,
+                          text);
     } else {
-        snprintf(full_text, sizeof(full_text), "<|text_start|>%s<|text_end|>",
-                 text);
+        n_full = snprintf(full_text, sizeof(full_text),
+                          "<|text_start|>%s<|text_end|>", text);
+    }
+    /* truncar aqui cortaria o <|text_end|> e geraria um prompt quebrado */
+    if (n_full < 0 || (size_t)n_full >= sizeof(full_text)) {
+        snprintf(r.err, sizeof(r.err), "texto longo demais");
+        if (vp) prompt_free(vp);
+        return r;
     }
 
     int32_t style_ids[128], text_ids[4096];
@@ -383,12 +437,22 @@ static gen_result generate_one(ov_tokenizer *tk, ov_model *m, ov_decoder *dec,
     return r;
 }
 
-/* Lê uma linha do stdin (UTF-8) sem tradução; retorna 0 no EOF. */
+/* Lê uma linha do stdin (UTF-8) sem tradução. Retorna 0 no EOF, 1 para uma
+ * linha completa e 2 se ela não coube em `cap`: nesse caso o resto da linha é
+ * descartado. Sem isso, o resto virava um segundo "job" e o worker mandava
+ * duas respostas para um pedido, dessincronizando o protocolo com a API. */
 static int read_line(char *buf, int cap) {
     if (!fgets(buf, cap, stdin)) return 0;
     size_t len = strlen(buf);
+    const int complete = len > 0 && buf[len - 1] == '\n';
     while (len > 0 && (buf[len - 1] == '\n' || buf[len - 1] == '\r')) {
         buf[--len] = 0;
+    }
+    if (!complete && !feof(stdin)) {
+        int c;
+        while ((c = getchar()) != EOF && c != '\n') {
+        }
+        return 2;
     }
     return 1;
 }
@@ -413,7 +477,13 @@ static int serve_loop(ov_tokenizer *tk, ov_model *m, ov_decoder *dec,
             vram_mb);
 
     char *line = malloc(16384);
-    while (read_line(line, 16384)) {
+    int rl;
+    while ((rl = read_line(line, 16384)) != 0) {
+        if (rl == 2) {
+            fprintf(stdout, "ERR\tjob longo demais\n");
+            fflush(stdout);
+            continue;
+        }
         if (line[0] == 0) continue;
 
         /* separa os 4 primeiros campos por TAB; o texto é o resto */

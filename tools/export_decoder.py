@@ -17,17 +17,36 @@ from pathlib import Path
 import numpy as np
 import torch
 
+REPO = "k2-fsa/OmniVoice"
+# Mesma revisão fixada em export.py: decoder e modelo vêm do mesmo commit.
+REVISION = "c5fdb5ccb189668d56333f77ba2629f4cd7535f4"
 SNAPSHOT = (
-    r"D:\omnivoice-pt\hf-cache\hub\models--k2-fsa--OmniVoice"
-    r"\snapshots\c5fdb5ccb189668d56333f77ba2629f4cd7535f4\audio_tokenizer"
+    Path(__file__).resolve().parent.parent / "hf-cache" / "hub"
+    / "models--k2-fsa--OmniVoice" / "snapshots" / REVISION / "audio_tokenizer"
 )
+
+
+def default_model_dir() -> str:
+    """Usa o cache local do projeto; se não existir (outra máquina), baixa
+    só o audio_tokenizer da revisão fixada."""
+    if SNAPSHOT.is_dir():
+        return str(SNAPSHOT)
+    from huggingface_hub import snapshot_download
+
+    root = snapshot_download(
+        REPO, revision=REVISION, allow_patterns=["audio_tokenizer/*"]
+    )
+    return str(Path(root) / "audio_tokenizer")
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--model", default=SNAPSHOT)
+    ap.add_argument("--model", default=None,
+                    help="pasta do audio_tokenizer (padrão: revisão fixada)")
     ap.add_argument("--out", default="build")
     args = ap.parse_args()
+    if args.model is None:
+        args.model = default_model_dir()
 
     out_dir = Path(args.out)
     out_dir.mkdir(parents=True, exist_ok=True)

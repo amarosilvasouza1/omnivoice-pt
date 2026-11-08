@@ -21,6 +21,7 @@ deste serviço é expor a versão otimizada e leve, não a original pesada).
 """
 
 import json
+import logging
 import os
 import queue
 import re
@@ -32,12 +33,13 @@ import threading
 import time
 import uuid
 from collections import defaultdict, deque
+from html import escape as html_escape
 from pathlib import Path
 
 from flask import Flask, g, jsonify, request, send_from_directory
 from werkzeug.middleware.proxy_fix import ProxyFix
 
-ROOT = Path(r"D:\omnivoice-pt")
+ROOT = Path(__file__).resolve().parent.parent
 BUILD = ROOT / "build"
 AUDIO_DIR = BUILD / "api_audio"
 AUDIO_DIR.mkdir(exist_ok=True)
@@ -197,6 +199,34 @@ app = Flask(__name__)
 # cookie de admin marcado "secure" nunca seria aceito de volta pelo navegador.
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_for=1, x_host=1)
 
+# Teto de qualquer requisição. O maior caso legítimo é o WAV de clonagem
+# (uma referência de 1 min em 48 kHz estéreo tem ~11 MB). Sem isso, uma chave
+# de amigo conseguia encher o disco com um único upload.
+MAX_UPLOAD_MB = 20
+app.config["MAX_CONTENT_LENGTH"] = MAX_UPLOAD_MB * 1024 * 1024
+
+
+@app.errorhandler(413)
+def _too_large(_e):
+    return jsonify({"error": f"arquivo grande demais (máx. {MAX_UPLOAD_MB} MB)"}), 413
+
+
+class _RedactApiKeys(logging.Filter):
+    """Tira as chaves (?key=...) das linhas de acesso do werkzeug. O link do
+    amigo é /app?key=CHAVE, e sem isso toda chave ficava gravada nos logs."""
+
+    _rx = re.compile(r"([?&]key=)[^&\s\"]+")
+
+    def filter(self, record):
+        msg = record.getMessage()
+        red = self._rx.sub(r"\1***", msg)
+        if red != msg:
+            record.msg, record.args = red, ()
+        return True
+
+
+logging.getLogger("werkzeug").addFilter(_RedactApiKeys())
+
 # ---------------------------------------------------------------------
 # Banco de dados (SQLite): conexões (chaves de API) + histórico de pedidos
 # ---------------------------------------------------------------------
@@ -305,15 +335,25 @@ ADMIN_TOKEN = get_admin_token()
 _rate_state: dict[str, deque] = defaultdict(deque)
 
 
-def check_rate_limit(api_key: str, limit_per_min: int) -> bool:
+def check_rate_limit(bucket: str, limit: int, window_s: float = 60) -> bool:
     now = time.time()
-    dq = _rate_state[api_key]
-    while dq and now - dq[0] > 60:
+    dq = _rate_state[bucket]
+    while dq and now - dq[0] > window_s:
         dq.popleft()
-    if len(dq) >= limit_per_min:
+    if len(dq) >= limit:
         return False
     dq.append(now)
     return True
+
+
+# Limites que valem para toda conexão, além dos configuráveis no painel.
+# Trocar de modelo derruba e reergue os workers de TODO mundo; clonar roda o
+# Whisper num lock global. Os dois precisavam de freio próprio.
+MODEL_SWITCHES_PER_MIN = 2
+UPLOADS_PER_HOUR = 5
+MAX_PRIVATE_VOICES = 10
+MAX_REF_TEXT_CHARS = 500
+MAX_REF_SECONDS = 30.0
 
 
 # ---------------------------------------------------------------------
@@ -646,7 +686,10 @@ def api_generate():
         return jsonify({"error": "limite de pedidos por minuto excedido, aguarde"}), 429
 
     data = request.get_json(force=True, silent=True) or {}
-    text = (data.get("text") or "").strip()
+    if not isinstance(data, dict):
+        return jsonify({"error": "corpo deve ser um objeto JSON"}), 400
+    raw_text = data.get("text")
+    text = raw_text.strip() if isinstance(raw_text, str) else ""
     if not text:
         return jsonify({"error": "campo 'text' vazio"}), 400
     if len(text) > conn["max_chars"]:
@@ -662,6 +705,12 @@ def api_generate():
         quant = active_quant() if active_quant() in allowed_quant else allowed_quant[0]
     if quant not in allowed_quant:
         return jsonify({"error": f"quant '{quant}' não permitido nesta conexão"}), 400
+    # pedir outro quant com um modelo já carregado = troca para todo mundo
+    if active_quant() is not None and quant != active_quant():
+        if not check_rate_limit(f"model:{api_key}", MODEL_SWITCHES_PER_MIN):
+            return jsonify(
+                {"error": "trocas de modelo demais por minuto, aguarde"}
+            ), 429
 
     allowed_voices = resolve_allowed_voices(conn)
     voice = data.get("voice") or (allowed_voices[0] if allowed_voices else "auto")
@@ -674,10 +723,15 @@ def api_generate():
     if voice not in allowed_voices:
         return jsonify({"error": f"voz '{voice}' não permitida nesta conexão"}), 400
 
-    steps = int(data.get("steps") or conn["max_steps"])
+    try:
+        steps = int(data.get("steps") or conn["max_steps"])
+    except (TypeError, ValueError):
+        return jsonify({"error": "campo 'steps' deve ser um número inteiro"}), 400
     steps = max(4, min(conn["max_steps"], steps))
 
-    client_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
+    # ProxyFix já resolveu o IP real (último salto do túnel); o cabeçalho cru
+    # traz também o que o cliente quiser inventar.
+    client_ip = request.remote_addr
     result = run_generation(text, quant, steps, voice)
     log_request(conn["id"], text, voice, quant, steps, result, client_ip)
 
@@ -751,7 +805,10 @@ def api_set_model():
         return jsonify({"error": "conexão desativada"}), 403
 
     data = request.get_json(force=True, silent=True) or {}
-    quant = (data.get("quant") or data.get("model") or "").strip().lower()
+    if not isinstance(data, dict):
+        data = {}
+    quant = data.get("quant") or data.get("model") or ""
+    quant = quant.strip().lower() if isinstance(quant, str) else ""
     if quant in ("fp16", "f16", "16"):
         quant = "f16"
     elif quant in ("q8", "q8_0", "8"):
@@ -761,6 +818,10 @@ def api_set_model():
         return jsonify(
             {"error": f"modelo '{quant}' não disponível. Opções: {allowed}"}
         ), 400
+    if quant != active_quant() and not check_rate_limit(
+        f"model:{api_key}", MODEL_SWITCHES_PER_MIN
+    ):
+        return jsonify({"error": "trocas de modelo demais por minuto, aguarde"}), 429
 
     # troca o modelo (carrega o pedido, descarrega o outro)
     pool = ensure_quant_loaded(quant)
@@ -849,48 +910,84 @@ def api_clone_upload():
         return jsonify({"error": "campo 'voice_name' obrigatório"}), 400
     if "audio" not in request.files:
         return jsonify({"error": "arquivo 'audio' (WAV) obrigatório"}), 400
-    if not re.match(r"^[a-z0-9_]+$", raw_name):
+    if not re.fullmatch(r"[a-z0-9_]{1,40}", raw_name):
         return jsonify(
-            {"error": "voice_name deve ter só letras minúsculas, números e _"}
+            {"error": "voice_name deve ter até 40 letras minúsculas, números e _"}
+        ), 400
+    if len(ref_text) > MAX_REF_TEXT_CHARS:
+        return jsonify(
+            {"error": f"ref_text longo demais (máx. {MAX_REF_TEXT_CHARS} caracteres)"}
         ), 400
 
     # nome interno: privado por conexão (prefixo), ou global se for admin
     voice_name = raw_name if is_admin and not conn else f"{private_prefix(conn['id'])}{raw_name}"
 
+    if conn:
+        pref = private_prefix(conn["id"])
+        n_mine = sum(1 for n in VOICE_PROMPTS if n.startswith(pref))
+        if voice_name not in VOICE_PROMPTS and n_mine >= MAX_PRIVATE_VOICES:
+            return jsonify(
+                {"error": f"limite de {MAX_PRIVATE_VOICES} vozes por conexão; "
+                          "reenvie com o nome de uma voz sua para substituí-la"}
+            ), 400
+        if not check_rate_limit(f"upload:{conn['id']}", UPLOADS_PER_HOUR, 3600):
+            return jsonify(
+                {"error": f"limite de {UPLOADS_PER_HOUR} clonagens por hora, aguarde"}
+            ), 429
+
     VOICES_DIR.mkdir(parents=True, exist_ok=True)
     wav_path = VOICES_DIR / f"{voice_name}.wav"
     out_path = VOICES_DIR / f"{voice_name}.ovprompt"
+    # o .ovprompt é gerado à parte e só substitui o atual se der certo: uma
+    # reclonagem que falha não pode apagar a voz que já funcionava. A subpasta
+    # fica fora do glob("*.ovprompt") que carrega as vozes no arranque.
+    tmp_dir = VOICES_DIR / "_upload_tmp"
+    tmp_dir.mkdir(exist_ok=True)
+    tmp_id = uuid.uuid4().hex
+    tmp_wav = tmp_dir / f"{tmp_id}.wav"
+    tmp_out = tmp_dir / f"{tmp_id}.ovprompt"
 
-    request.files["audio"].save(str(wav_path))
+    request.files["audio"].save(str(tmp_wav))
 
     make_prompt = ROOT / "tools" / "make_prompt.py"
     python_exe = ROOT / ".venv" / "Scripts" / "python.exe"
     args = [
         str(python_exe), str(make_prompt),
-        "--ref_audio", str(wav_path),
-        "--out", str(out_path),
+        "--ref_audio", str(tmp_wav),
+        "--out", str(tmp_out),
         "--asr_model", "openai/whisper-small",  # usado se ref_text vazio
     ]
     if ref_text:
         args += ["--ref_text", ref_text]
+    # referência longa deixa a geração lenta para todos e infla a duração da
+    # fala (ver PLANO.md); sem valor válido, usa o padrão documentado (8 s)
     try:
         max_s = float(max_ref_s)
-        if max_s > 0:
-            args += ["--max_ref_seconds", str(max_s)]
-    except ValueError:
-        pass
+    except (TypeError, ValueError):
+        max_s = 8.0
+    if not (0 < max_s <= MAX_REF_SECONDS):  # também pega NaN
+        max_s = MAX_REF_SECONDS
+    args += ["--max_ref_seconds", str(max_s)]
 
     child_env = {**os.environ, "PYTHONIOENCODING": "utf-8",
                  "HF_HOME": str(ROOT / "hf-cache")}
     # serializa uploads: make_prompt usa a GPU/Whisper; evita dois ao mesmo tempo
     with _upload_lock:
         proc = subprocess.run(
-            args, capture_output=True, text=True, encoding="utf-8", env=child_env
+            args, capture_output=True, text=True, encoding="utf-8",
+            errors="replace", env=child_env,
         )
-    if proc.returncode != 0 or not out_path.exists():
-        return jsonify(
-            {"error": f"falha ao clonar a voz: {(proc.stderr or '')[-400:]}"}
-        ), 500
+    if proc.returncode != 0 or not tmp_out.exists():
+        tmp_wav.unlink(missing_ok=True)
+        tmp_out.unlink(missing_ok=True)
+        # traceback completo só no console; para o cliente vai a última linha
+        # (a mensagem do erro), sem caminhos internos do servidor
+        print(f"[clone {voice_name}] make_prompt falhou:\n{proc.stderr or ''}")
+        lines = [ln for ln in (proc.stderr or "").splitlines() if ln.strip()]
+        reason = lines[-1][-200:] if lines else "erro desconhecido"
+        return jsonify({"error": f"falha ao clonar a voz: {reason}"}), 500
+    os.replace(tmp_wav, wav_path)
+    os.replace(tmp_out, out_path)
 
     # Registra em memória (fica disponível na hora, sem reiniciar)
     VOICE_PROMPTS[voice_name] = out_path
@@ -932,7 +1029,9 @@ def friend_app():
 
 @app.route("/docs")
 def docs_page():
-    base_url = request.host_url.rstrip("/")
+    # host_url vem do cabeçalho Host / X-Forwarded-Host: escapa antes de
+    # colar no HTML
+    base_url = html_escape(request.host_url.rstrip("/"))
     return DOCS_HTML.replace("__BASE_URL__", base_url)
 
 
@@ -964,7 +1063,11 @@ def admin_login():
         return jsonify({"error": "muitas tentativas — aguarde alguns minutos"}), 429
 
     data = request.get_json(force=True, silent=True) or {}
-    if data.get("token") != ADMIN_TOKEN:
+    token = data.get("token") if isinstance(data, dict) else None
+    # compare_digest: o tempo da comparação não revela quantos caracteres batem
+    if not isinstance(token, str) or not secrets.compare_digest(
+        token.encode("utf-8"), ADMIN_TOKEN.encode("utf-8")
+    ):
         attempts.append(now)
         return jsonify({"error": "token incorreto"}), 403
 
@@ -1382,6 +1485,13 @@ audio{height:30px;width:220px}
   </div>
 </div>
 <script>
+// Tudo que vem do servidor passa por esc() antes de entrar em innerHTML: o
+// texto dos pedidos é escrito pelos amigos e, sem isso, um "texto" com
+// <img onerror=...> rodaria JavaScript aqui, com a sessão de admin.
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, ch =>
+    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[ch]);
+}
 function fmtAgo(ts) {
   const s = Math.round(Date.now()/1000 - ts);
   if (s < 60) return s + "s atrás";
@@ -1444,7 +1554,7 @@ async function loadConfig() {
   const warn = d.exe_exists ? '' : ' warn';
   const exeMsg = d.exe_exists ? '' : ' · binário NÃO encontrado (compile este build!)';
   document.getElementById('cfg-gpu').innerHTML =
-    `GPU: <b>${d.gpu_name}</b> · build ativo <span class="cfg-badge${warn}">${d.resolved_target}</span>${exeMsg}`;
+    `GPU: <b>${esc(d.gpu_name)}</b> · build ativo <span class="cfg-badge${warn}">${esc(d.resolved_target)}</span>${exeMsg}`;
   _cfgLoaded = true;
 }
 document.getElementById('cfg-keep').onchange = syncIdleVisibility;
@@ -1479,9 +1589,9 @@ async function loadConnections() {
   const conns = await (await fetch('/admin/api/connections')).json();
   document.getElementById('conn-body').innerHTML = conns.map(c => `
     <tr class="conn-row">
-      <td><b>${c.name}</b><br><span class="hint">${c.notes||''}</span></td>
-      <td><span class="key" onclick="copyKey('${c.api_key}')" title="clicar para copiar">${c.api_key}</span>
-        <div class="copyhint">/app?key=${c.api_key}</div></td>
+      <td><b>${esc(c.name)}</b><br><span class="hint">${esc(c.notes)}</span></td>
+      <td><span class="key" onclick="copyKey(this.textContent)" title="clicar para copiar">${esc(c.api_key)}</span>
+        <div class="copyhint">/app?key=${esc(c.api_key)}</div></td>
       <td><span class="pill ${c.enabled ? 'on':'off'}">${c.enabled ? 'ativa':'desativada'}</span></td>
       <td>${c.n_requests}</td>
       <td>${c.last_used ? fmtAgo(c.last_used) : 'nunca'}</td>
@@ -1496,9 +1606,9 @@ async function loadConnections() {
         <div><label>Máx. caracteres</label><input id="mc-${c.id}" type="number" value="${c.max_chars}"></div>
         <div><label>Máx. passos</label><input id="ms-${c.id}" type="number" value="${c.max_steps}"></div>
         <div><label>Pedidos/min</label><input id="rl-${c.id}" type="number" value="${c.rate_limit_per_min}"></div>
-        <div><label>Quant. permitidas</label><input id="aq-${c.id}" value="${c.allowed_quant}"></div>
-        <div><label>Vozes permitidas</label><input id="av-${c.id}" value="${c.allowed_voices}"></div>
-        <div><label>Notas</label><input id="nt-${c.id}" value="${c.notes||''}"></div>
+        <div><label>Quant. permitidas</label><input id="aq-${c.id}" value="${esc(c.allowed_quant)}"></div>
+        <div><label>Vozes permitidas</label><input id="av-${c.id}" value="${esc(c.allowed_voices)}"></div>
+        <div><label>Notas</label><input id="nt-${c.id}" value="${esc(c.notes)}"></div>
         <div style="grid-column:1/-1"><button class="primary" onclick="saveConn(${c.id})">Salvar</button></div>
       </div>
     </td></tr>
@@ -1546,10 +1656,10 @@ async function loadRequests() {
   document.getElementById('req-body').innerHTML = reqs.map(r => `
     <tr class="req-row ${r.error ? 'error':''}">
       <td class="hint">${fmtAgo(r.ts)}</td>
-      <td>${r.connection_name}</td>
-      <td class="req-text" title="${(r.text||'').replace(/"/g,'&quot;')}">${r.error ? ('erro: '+r.error.slice(0,80)) : r.text}</td>
-      <td>${r.voice||'—'}</td>
-      <td>${r.audio_file ? `<audio controls preload="none" src="/api/v1/audio/${r.audio_file}"></audio>` : '—'}</td>
+      <td>${esc(r.connection_name)}</td>
+      <td class="req-text" title="${esc(r.text)}">${r.error ? esc('erro: '+r.error.slice(0,80)) : esc(r.text)}</td>
+      <td>${esc(r.voice||'—')}</td>
+      <td>${r.audio_file ? `<audio controls preload="none" src="/api/v1/audio/${encodeURIComponent(r.audio_file)}"></audio>` : '—'}</td>
       <td class="mono">${r.gen_s ?? '—'}s</td>
       <td class="mono">${r.rtf ?? '—'}</td>
       <td class="mono">${r.vram_mb ?? '—'} MB</td>
@@ -1583,6 +1693,10 @@ audio{width:100%;margin-top:10px}
 </style></head><body>
 <div id="root"></div>
 <script>
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, ch =>
+    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[ch]);
+}
 const params = new URLSearchParams(location.search);
 const key = params.get('key') || '';
 const root = document.getElementById('root');
@@ -1594,10 +1708,11 @@ async function init() {
       com <code class="mono">?key=...</code>.</p></div>`;
     return;
   }
-  const info = await (await fetch('/api/v1/voices?key=' + encodeURIComponent(key))).json();
+  // a chave vai no cabeçalho, não na URL: URLs acabam em logs
+  const info = await (await fetch('/api/v1/voices', {headers: {'X-API-Key': key}})).json();
   if (info.error) {
     root.innerHTML = `<div class="badkey"><div class="eyebrow">OmniVoice-PT</div>
-      <h1>Acesso negado</h1><p class="dek">${info.error}</p></div>`;
+      <h1>Acesso negado</h1><p class="dek">${esc(info.error)}</p></div>`;
     return;
   }
   // Monta labels a partir dos metadados da API (voices_detail)
@@ -1615,8 +1730,8 @@ async function init() {
     <p class="dek">Digite o texto e clique em gerar. Roda direto no host (GPU/CPU).</p>
     <textarea id="text" maxlength="${info.max_chars}" placeholder="Digite até ${info.max_chars} caracteres..."></textarea>
     <div class="row">
-      <select id="voice">${info.voices.map(v=>`<option value="${v}">${voiceLabels[v]||v}</option>`).join('')}</select>
-      <select id="quant">${info.quant.map(q=>`<option value="${q}">${quantLabels[q]||q}</option>`).join('')}</select>
+      <select id="voice">${info.voices.map(v=>`<option value="${esc(v)}">${esc(voiceLabels[v]||v)}</option>`).join('')}</select>
+      <select id="quant">${info.quant.map(q=>`<option value="${esc(q)}">${esc(quantLabels[q]||q)}</option>`).join('')}</select>
       <button class="primary" id="go">▶ Gerar</button>
     </div>
     <div class="result" id="result"></div>
@@ -1627,8 +1742,8 @@ async function init() {
     if (!text) return;
     const btn = document.getElementById('go');
     btn.disabled = true; btn.textContent = 'gerando...';
-    const res = await fetch('/api/v1/generate?key=' + encodeURIComponent(key), {
-      method: 'POST', headers: {'Content-Type':'application/json'},
+    const res = await fetch('/api/v1/generate', {
+      method: 'POST', headers: {'Content-Type':'application/json', 'X-API-Key': key},
       body: JSON.stringify({
         text,
         voice: document.getElementById('voice').value,
@@ -1639,13 +1754,13 @@ async function init() {
     const box = document.getElementById('result');
     box.className = 'result show';
     if (data.error) {
-      box.innerHTML = `<div class="err">${data.error}</div>`;
+      box.innerHTML = `<div class="err">${esc(data.error)}</div>`;
     } else {
-      box.innerHTML = `<audio controls autoplay src="${data.audio_url}"></audio>
+      box.innerHTML = `<audio controls autoplay src="${esc(data.audio_url)}"></audio>
         <div class="meta">
-          <span>geração <b>${data.gen_s}s</b></span>
-          <span>RTF <b>${data.rtf}</b></span>
-          <span>VRAM <b>${data.vram_mb} MB</b></span>
+          <span>geração <b>${esc(data.gen_s)}s</b></span>
+          <span>RTF <b>${esc(data.rtf)}</b></span>
+          <span>VRAM <b>${esc(data.vram_mb)} MB</b></span>
         </div>`;
     }
     btn.disabled = false; btn.textContent = '▶ Gerar';

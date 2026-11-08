@@ -303,9 +303,17 @@ def export_gguf(model_dir: Path, out_dir: Path, keep_ids: list[int], quant: str)
 # ---------------------------------------------------------------------------
 
 
+# Revisão do k2-fsa/OmniVoice da qual os GGUFs em build/ foram exportados.
+# Fixada para que outra máquina baixe exatamente os mesmos pesos: sem isso,
+# uma atualização do modelo no HF mudaria o resultado do export em silêncio.
+MODEL_REVISION = "c5fdb5ccb189668d56333f77ba2629f4cd7535f4"
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", default="k2-fsa/OmniVoice")
+    ap.add_argument("--revision", default=MODEL_REVISION,
+                    help="commit do repo no HF (ignorado se --model for pasta)")
     ap.add_argument("--out", default="build")
     ap.add_argument("--quant", default="Q8_0", choices=["Q8_0", "F16", "Q4_0"])
     args = ap.parse_args()
@@ -321,6 +329,7 @@ def main():
         model_dir = Path(
             snapshot_download(
                 args.model,
+                revision=args.revision,
                 allow_patterns=["*.json", "*.safetensors", "*.jinja"],
             )
         )
