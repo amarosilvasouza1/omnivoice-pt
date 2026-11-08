@@ -1,0 +1,54 @@
+OmniVoice-PT - edicao AMD Radeon RX 7600 (Vulkan)
+==================================================
+
+Esta edicao usa o backend Vulkan e roda na AMD Radeon RX 7600 (e RX 7600
+XT), arquitetura RDNA3. Nao precisa de CUDA nem ROCm - apenas o driver
+AMD Adrenalin com suporte Vulkan (ja incluso nos drivers atuais).
+
+PRIMEIRO USO (gerar audio)
+1. Extraia o ZIP inteiro. Nao execute de dentro do ZIP.
+2. Atualize o driver AMD Adrenalin pelo site oficial.
+3. Execute TESTAR-RX7600.bat para confirmar o Vulkan.
+4. Execute GERAR-RX7600.bat e comece pelo modelo Q8.
+
+MODELOS
+- Q8: recomendado. Aproximadamente 0,6 GB de pesos, rapido e leve.
+- FP16: aproximadamente 1,1 GB de pesos, qualidade maxima. Cabe
+  tranquilo nos 8 GB da RX 7600.
+
+VOZES PRONTAS
+- O pacote ja inclui varias vozes clonadas na pasta "vozes".
+- Digite o nome do arquivo (sem .ovprompt) ao gerar, ou tecle Enter
+  para a voz automatica.
+
+CLONAR SUA PROPRIA VOZ (opcional)
+A clonagem cria o perfil UMA vez em Python/CPU; depois o .ovprompt roda
+direto no runtime Vulkan, igual as vozes prontas.
+1. Instale Python 3.10 ou 3.11 pelo site python.org
+   (marque "Add Python to PATH").
+2. Execute INSTALAR-CLONAGEM.bat uma unica vez. Usa CPU e baixa as
+   dependencias; exige internet e alguns GB livres.
+3. Grave um WAV limpo, sem musica e sem outra voz, com 3 a 10 segundos.
+4. Execute CLONAR-MINHA-VOZ.bat e informe o WAV, um nome curto e a
+   transcricao EXATA do que foi falado.
+   (Na primeira clonagem ele baixa o tokenizador de audio do modelo.)
+5. O perfil aparece na pasta "vozes". Execute GERAR-RX7600.bat e
+   escolha o nome que voce deu.
+
+REQUISITOS
+- Windows 10 ou 11 de 64 bits.
+- AMD Radeon RX 7600 / 7600 XT com driver Adrenalin atualizado.
+- O driver precisa oferecer Vulkan. Nao requer CUDA nem ROCm.
+- Apenas a clonagem (criar um perfil novo) precisa de Python + internet
+  na primeira vez.
+
+SOLUCAO DE PROBLEMAS
+- Se disser que nao encontrou dispositivo Vulkan, atualize o driver AMD
+  e reinicie o computador.
+- Nao execute de dentro do ZIP: extraia todos os arquivos.
+- Comece pelo Q8; FP16 exige mais memoria.
+
+IMPORTANTE
+- Gere somente um audio por vez.
+- Feche jogos e programas que usem a GPU.
+- Use somente vozes proprias ou autorizadas e identifique audio sintetico.

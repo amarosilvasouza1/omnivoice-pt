@@ -1,0 +1,2 @@
+Esta pasta começa sem perfis prontos.
+Use CLONAR-MINHA-VOZ.bat para criar arquivos .ovprompt aqui.

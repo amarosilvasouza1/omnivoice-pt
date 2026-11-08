@@ -1,0 +1,23 @@
+OmniVoice-PT - Fonte Vulkan
+===========================
+
+Pacote para desenvolvimento e compilacao local.
+
+INCLUIDO
+- runtime C completo
+- GGML com backend Vulkan
+- CMake e scripts de compilacao para Windows/Linux
+- ferramentas Python de exportacao e criacao de perfis
+- codigo Python original de referencia do OmniVoice
+- testes-fonte
+- licencas dos componentes
+
+NAO INCLUIDO
+- modelos GGUF
+- tokenizer e artefatos dourados gerados
+- audios ou perfis de voz
+- executaveis e DLLs
+- Vulkan SDK
+- bancos de dados, chaves, tokens ou logs
+
+Consulte LEIA-ME.md antes de compilar.

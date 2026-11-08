@@ -1,0 +1,32 @@
+OmniVoice-PT - NVIDIA Q8 + FP16 com clonagem própria
+============================================================
+
+Este pacote não inclui os 18 perfis de vozes prontos.
+A pasta vozes começa vazia para cada pessoa criar a própria voz.
+
+PARA GERAR SEM CLONAGEM
+1. Extraia o ZIP inteiro.
+2. Execute GERAR-NVIDIA.bat.
+3. Escolha Q8 ou FP16 e deixe o nome da voz vazio.
+
+PARA CLONAR SUA VOZ
+1. Instale Python 3.10 ou 3.11 pelo site python.org.
+2. Execute INSTALAR-CLONAGEM.bat uma única vez. O preparador usa CPU
+   e baixa suas dependências; exige internet e alguns GB livres.
+3. Grave um WAV limpo, mono ou estéreo, com 3–10 segundos.
+4. Execute CLONAR-MINHA-VOZ.bat.
+5. Informe o WAV e a transcrição EXATA do que foi falado.
+6. Execute GERAR-NVIDIA.bat e escolha o perfil criado.
+
+MODELOS
+- Q8: recomendado, cerca de 0,6 GB de pesos na GPU.
+- FP16: qualidade máxima, cerca de 1,1 GB de pesos na GPU.
+
+REQUISITOS DE GERAÇÃO
+- Windows 10/11 de 64 bits.
+- GPU NVIDIA e driver atualizado.
+- A criação do perfil usa Python/CPU apenas uma vez por voz.
+- Depois de criado, o .ovprompt funciona diretamente no runtime C/CUDA.
+
+Nenhuma voz pronta de terceiros acompanha este pacote.
+Use somente gravações próprias ou autorizadas e identifique áudio sintético.

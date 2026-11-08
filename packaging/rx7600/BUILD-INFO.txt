@@ -1,0 +1,16 @@
+OmniVoice-PT AMD RX 7600 - informacoes da compilacao
+====================================================
+Data: 2026-07-18
+Sistema: Windows x86-64
+GPU alvo: AMD Radeon RX 7600 / 7600 XT (RDNA3)
+Backend: Vulkan (GGML_VULKAN=ON)
+Shaders: SPIR-V (portaveis entre GPUs Vulkan)
+Configuracao: Release
+CUDA/ROCm: nao utilizados
+GGML native CPU: OFF
+Modelos incluidos: Q8_0 e FP16
+Clonagem de voz: incluida (Python/CPU, uma vez por voz)
+
+O runtime Vulkan e portavel: os mesmos binarios rodam em qualquer GPU
+com driver Vulkan. A maquina de construcao possui uma RTX 5060 Ti; o
+teste final de desempenho deve ser feito na maquina com a RX 7600.

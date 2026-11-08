@@ -1,0 +1,46 @@
+OmniVoice-PT - Edição AMD RX 580 (Vulkan)
+============================================================
+
+Esta é uma edição separada. Ela não substitui as versões CUDA,
+CPU Q4 ou Linux.
+
+REQUISITOS
+- Windows 10 ou 11, 64 bits.
+- AMD Radeon RX 580 com driver AMD Adrenalin atualizado.
+- O driver precisa oferecer Vulkan. Não requer CUDA nem ROCm.
+- Q8 é o modo recomendado para a RX 580.
+- FP16 está incluído, mas consome mais VRAM e pode ser mais lento
+  dependendo do driver e da versão da placa.
+
+USO RÁPIDO
+1. Extraia todo o ZIP para uma pasta.
+2. Execute TESTAR-RX580.bat.
+3. Se o teste funcionar, execute GERAR-AMD-RX580.bat.
+4. Escolha Q8 ou FP16, uma voz opcional e digite o texto.
+
+VOZ CLONADA
+- O runtime desta edição aceita perfis .ovprompt pelo parâmetro -p.
+- Os perfis públicos já estão na pasta vozes.
+- No GERAR-AMD-RX580.bat, digite o nome exibido sem .ovprompt.
+- Para adicionar outro perfil pronto, copie o .ovprompt para vozes.
+- A criação de um perfil novo a partir de WAV exige o preparador
+  Python do projeto completo; não é necessária para usar os perfis
+  que já acompanham este ZIP.
+
+CONTEÚDO
+- Backend Vulkan para GPU AMD.
+- Modelo Q8.
+- Modelo FP16.
+- Decoder F16 e tokenizer.
+- Suporte a perfis de clonagem de voz.
+- Perfis públicos existentes no momento do empacotamento.
+
+SOLUÇÃO DE PROBLEMAS
+- Se disser que não encontrou dispositivo Vulkan, atualize o driver
+  AMD pelo site oficial e reinicie o computador.
+- Não execute o programa de dentro do ZIP: extraia todos os arquivos.
+- Feche jogos e programas que estejam usando muita VRAM.
+- Comece pelo Q8. FP16 exige mais memória.
+
+Uso responsável: utilize apenas vozes para as quais você tenha
+permissão e deixe claro quando um áudio for sintetizado.

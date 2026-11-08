@@ -1,0 +1,41 @@
+OmniVoice-PT - edicao RTX 2050 Laptop 4 GB
+===========================================
+
+Esta edicao foi compilada especificamente para a NVIDIA GeForce RTX 2050
+Laptop, arquitetura Ampere compute capability 8.6 (sm_86).
+
+OTIMIZACOES DESTA EDICAO
+- codigo CUDA nativo sm_86, sem arquiteturas desnecessarias;
+- CUDA Graphs ativado para reduzir o custo entre operacoes;
+- configuracao para uma unica GPU e um unico trabalho por vez;
+- decoder de audio longo dividido em blocos com contexto, reduzindo o pico;
+- Q8 selecionado por padrao para proteger os 4 GB de VRAM;
+- backend CUDA sem depender do processador usado na compilacao;
+- NCCL/multi-GPU removido, pois nao traz beneficio neste notebook.
+
+PRIMEIRO USO
+1. Extraia o ZIP inteiro. Nao execute de dentro do ZIP.
+2. Conecte o notebook na tomada e selecione o modo de alto desempenho.
+3. Atualize o driver NVIDIA.
+4. Execute TESTAR-RTX2050.bat.
+5. Execute GERAR-RTX2050.bat e comece pelo modelo Q8.
+
+MODELOS
+- Q8: recomendado. Aproximadamente 0,6 GB de pesos e menor pico de VRAM.
+- FP16: aproximadamente 1,1 GB de pesos. Cabe em 4 GB, mas deixa menos
+  memoria para o Windows e outros aplicativos.
+
+CLONAGEM DE VOZ
+O pacote comeca sem perfis prontos de terceiros.
+1. Instale Python 3.10 ou 3.11 pelo site python.org.
+2. Execute INSTALAR-CLONAGEM.bat uma vez. Requer internet e alguns GB livres.
+3. Grave um WAV limpo com 3 a 10 segundos e sem musica.
+4. Execute CLONAR-MINHA-VOZ.bat e informe a transcricao exata.
+5. Escolha o perfil criado ao executar GERAR-RTX2050.bat.
+
+IMPORTANTE
+- Gere somente um audio por vez.
+- Feche jogos e programas que usem a GPU dedicada.
+- No painel NVIDIA, force estes arquivos .bat/omnivoice-pt.exe a usarem a
+  GPU NVIDIA de alto desempenho, e nao a GPU integrada do notebook.
+- Use somente vozes proprias ou autorizadas e identifique audio sintetico.

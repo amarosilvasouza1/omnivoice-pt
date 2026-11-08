@@ -1,0 +1,41 @@
+{
+  "version": 3,
+  "configurePresets": [
+    {
+      "name": "linux-q4-sandybridge",
+      "displayName": "Linux Q4 - Intel Sandy Bridge (i7 2a geracao)",
+      "description": "CPU x86-64 com AVX/SSE4.2, sem AVX2, FMA, F16C ou BMI2",
+      "binaryDir": "${sourceDir}/cmake-build-linux-q4",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_C_FLAGS_RELEASE": "-O3 -DNDEBUG -mtune=sandybridge",
+        "CMAKE_CXX_FLAGS_RELEASE": "-O3 -DNDEBUG -mtune=sandybridge",
+        "BUILD_SHARED_LIBS": "OFF",
+        "OVPT_BUILD_TESTS": "OFF",
+        "GGML_STATIC": "ON",
+        "GGML_NATIVE": "OFF",
+        "GGML_CUDA": "OFF",
+        "GGML_BLAS": "OFF",
+        "GGML_OPENMP": "OFF",
+        "GGML_LTO": "ON",
+        "GGML_SSE42": "ON",
+        "GGML_AVX": "ON",
+        "GGML_AVX2": "OFF",
+        "GGML_AVX_VNNI": "OFF",
+        "GGML_FMA": "OFF",
+        "GGML_F16C": "OFF",
+        "GGML_BMI2": "OFF",
+        "GGML_AVX512": "OFF"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "linux-q4-sandybridge",
+      "configurePreset": "linux-q4-sandybridge",
+      "configuration": "Release",
+      "jobs": 4,
+      "targets": ["omnivoice-pt"]
+    }
+  ]
+}

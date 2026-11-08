@@ -1,0 +1,14 @@
+.git
+.venv
+cmake-build*
+dist
+hf-cache
+omnivoice-src
+data
+tools/bin
+voices.zip
+cuda-build.log
+build/*
+!build/omnivoice-pt-q4_0.gguf
+!build/higgs-decoder-f16.gguf
+!build/tokenizer.bin

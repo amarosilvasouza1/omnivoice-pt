@@ -1,0 +1,19 @@
+OmniVoice-PT - Completo para Vulkan
+===================================
+
+INCLUIDO
+- codigo-fonte C e Python
+- GGML e backend Vulkan
+- Q4, Q8 e FP16
+- decoder, tokenizer e arquivos dourados
+- ferramentas, API, testes e documentacao
+- perfis e WAVs das vozes publicas
+- scripts de compilacao Windows e Linux
+
+EXCLUIDO POR SEGURANCA
+- vozes privadas de conexoes individuais
+- chaves, tokens, bancos e configuracoes privadas
+- logs, caches, audios gerados e builds antigos
+- Vulkan SDK, que deve ser instalado separadamente
+
+Leia LEIA-ME.md antes de compilar ou redistribuir.

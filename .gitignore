@@ -1,0 +1,37 @@
+# --- Ambiente e caches (recriáveis) ---
+.venv/
+hf-cache/
+__pycache__/
+*.pyc
+
+# --- Saídas de build: modelos .gguf, goldens, executáveis, pacotes ---
+build/
+cmake-build*/
+dist/
+*.gguf
+*.safetensors
+*.npz
+*.zip
+
+# --- Binários de terceiros baixados (cloudflared.exe, ngrok.exe) ---
+tools/bin/
+
+# --- Logs e marcadores de execução ---
+*.log
+*.flag
+
+# --- Áudio e vozes: são vozes de pessoas reais, nunca versionar ---
+*.wav
+*.ovprompt
+data/voices/
+
+# --- Estado local do serviço (o endereço do túnel muda a cada execução) ---
+LINK-ATUAL.txt
+ngrok-dominio.txt
+
+# --- Editor / SO ---
+.vs/
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini

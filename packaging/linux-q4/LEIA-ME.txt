@@ -1,0 +1,77 @@
+OmniVoice-PT Q4 para Linux x86-64
+=================================
+
+Esta variante roda somente no processador e foi compilada para Intel Sandy
+Bridge (Core i7 de 2a geracao): AVX e SSE4.2 ativos, sem AVX2, FMA, F16C ou
+BMI2. Ela tambem funciona em processadores x86-64 mais novos com AVX.
+
+A versao anterior nao e substituida. Este pacote usa outro nome e outra pasta.
+
+REQUISITOS
+----------
+- Linux x86-64
+- processador com AVX (Core de 2a geracao ou mais novo)
+- cerca de 700 MB de RAM livre
+- nao precisa de Python, CUDA, GPU ou bibliotecas adicionais
+
+USO RAPIDO
+----------
+1. Extraia o ZIP pelo gerenciador de arquivos ou pela linha de comando:
+
+   unzip OmniVoice-PT-Q4-Linux.zip
+
+2. Entre na pasta e gere o audio:
+
+   cd OmniVoice-PT-Q4-Linux
+   ./gerar.sh "Ola, este e um teste no Linux."
+
+O arquivo WAV sera criado dentro da pasta. Tambem e possivel escolher o nome:
+
+   ./gerar.sh "Texto do teste" minha-saida.wav
+
+AJUSTE PARA I7 DE 2A GERACAO
+----------------------------
+O perfil padrao prioriza desempenho: usa 8 passos e detecta os nucleos fisicos
+(normalmente 4 no i7 desktop ou 2 em alguns modelos moveis).
+
+Para usar o perfil equilibrado (um pouco mais lento):
+
+   OV_STEPS=12 ./gerar.sh "Texto curto"
+
+Para priorizar qualidade:
+
+   OV_STEPS=20 ./gerar.sh "Texto curto"
+
+Para testar manualmente o numero de threads:
+
+   OV_THREADS=4 ./gerar.sh "Texto curto"
+
+Nao e recomendado usar as 8 threads logicas de um i7 4-core antigo sem medir:
+o Hyper-Threading pode disputar cache e memoria e acabar mais lento.
+
+CLONAGEM DE VOZ
+---------------
+Se voce ja possui um arquivo .ovprompt:
+
+   OV_PROMPT=/caminho/voz.ovprompt ./gerar.sh "Texto com a voz clonada"
+
+LINHA DE COMANDO COMPLETA
+-------------------------
+O executavel tambem pode ser chamado diretamente:
+
+   ./omnivoice-pt \
+     -m modelos/omnivoice-pt-q4_0.gguf \
+     -d modelos/higgs-decoder-f16.gguf \
+     -k modelos/tokenizer.bin \
+     -t "Ola" -o saida.wav --threads 4 --steps 8
+
+Se o ZIP for extraido por uma ferramenta que nao preserve a permissao de
+execucao, corrija uma vez com:
+
+   chmod +x omnivoice-pt gerar.sh
+
+Se aparecer "Illegal instruction", o processador ou a maquina virtual nao
+expoem AVX. Em uma VM, habilite a passagem das instrucoes do processador host.
+
+Observacao: em um i7 de 2a geracao a sintese pode ficar abaixo de tempo real.
+Use frases curtas e OV_STEPS=8 quando a menor espera for a prioridade.

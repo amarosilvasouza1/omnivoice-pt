@@ -1,0 +1,16 @@
+# Texto é guardado com LF no repositório; o Windows recebe CRLF no checkout.
+* text=auto
+
+# Scripts do Windows precisam de CRLF; scripts do Linux quebram com CRLF.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.sh text eol=lf
+Dockerfile text eol=lf
+
+# Binários: nunca converter.
+*.wav binary
+*.gguf binary
+*.ovprompt binary
+*.bin binary
+*.exe binary
+*.zip binary
