@@ -17,16 +17,16 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "omnivoice-src")
 
 from omnivoice.models.omnivoice import OmniVoice  # noqa: E402
 
-SNAPSHOT = (
-    r"D:\omnivoice-pt\hf-cache\hub\models--k2-fsa--OmniVoice"
-    r"\snapshots\c5fdb5ccb189668d56333f77ba2629f4cd7535f4"
+SNAPSHOT = str(
+    Path(__file__).resolve().parent.parent / "hf-cache" / "hub"
+    / "models--k2-fsa--OmniVoice" / "snapshots" / "c5fdb5ccb189668d56333f77ba2629f4cd7535f4"
 )
 
 TEXT = (
     "Olá! Esta é a primeira síntese de fala feita inteiramente em C, "
     "com menos de um gigabyte de memória de vídeo."
 )
-OUT = r"D:\omnivoice-pt\build\teste_pytorch_gpu.wav"
+OUT = str(Path(__file__).resolve().parent.parent / "build" / "teste_pytorch_gpu.wav")
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 torch.cuda.reset_peak_memory_stats() if device == "cuda" else None

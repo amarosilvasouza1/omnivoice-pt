@@ -24,9 +24,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "omnivoice-src")
 
 from omnivoice.models.omnivoice import OmniVoice  # noqa: E402
 
-SNAPSHOT = (
-    r"D:\omnivoice-pt\hf-cache\hub\models--k2-fsa--OmniVoice"
-    r"\snapshots\c5fdb5ccb189668d56333f77ba2629f4cd7535f4"
+SNAPSHOT = str(
+    Path(__file__).resolve().parent.parent / "hf-cache" / "hub"
+    / "models--k2-fsa--OmniVoice" / "snapshots" / "c5fdb5ccb189668d56333f77ba2629f4cd7535f4"
 )
 
 TEXT = "Bom dia, tudo bem?"
@@ -63,7 +63,7 @@ def main():
     V = logits.size(-1)
     tail = logits[0, :, S - N_AUDIO : S, :].contiguous().float().numpy()
 
-    out = Path(r"D:\omnivoice-pt\build\model_golden.bin")
+    out = Path(__file__).resolve().parent.parent / "build" / "model_golden.bin"
     with open(out, "wb") as f:
         f.write(b"OVMG")
         f.write(struct.pack("<IIII", C, S, N_AUDIO, V))

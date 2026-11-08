@@ -1,7 +1,7 @@
 @echo off
 chcp 65001 >nul
 title OmniVoice-PT - Servico
-cd /d D:\omnivoice-pt
+cd /d "%~dp0"
 
 echo ============================================================
 echo    Iniciando o servico OmniVoice-PT

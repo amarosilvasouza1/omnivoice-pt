@@ -26,13 +26,17 @@ def gpu_used_mb() -> int:
 parser = argparse.ArgumentParser()
 parser.add_argument("quant", choices=["q8_0", "f16"])
 parser.add_argument("--runs", type=int, default=1)
+parser.add_argument(
+    "--prompt", default="-",
+    help="voz .ovprompt para medir com clonagem (padrão: voz automática)",
+)
 args = parser.parse_args()
 
 exe = ROOT / "cmake-build-cuda" / "bin" / "omnivoice-pt.exe"
 model = ROOT / "build" / f"omnivoice-pt-{args.quant}.gguf"
 decoder = ROOT / "build" / "higgs-decoder-f16.gguf"
 tokenizer = ROOT / "build" / "tokenizer.bin"
-prompt = ROOT / "data" / "voices" / "gazz.ovprompt"
+prompt = args.prompt
 output = ROOT / "build" / f"benchmark-vram-{args.quant}.wav"
 
 baseline_samples = [gpu_used_mb() for _ in range(5)]

@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """Confere nomes de parâmetros vs buffers do caminho de decode."""
 
+from pathlib import Path
+
 from transformers import HiggsAudioV2TokenizerModel
 
-SNAPSHOT = (
-    r"D:\omnivoice-pt\hf-cache\hub\models--k2-fsa--OmniVoice"
-    r"\snapshots\c5fdb5ccb189668d56333f77ba2629f4cd7535f4\audio_tokenizer"
+SNAPSHOT = str(
+    Path(__file__).resolve().parent.parent / "hf-cache" / "hub"
+    / "models--k2-fsa--OmniVoice" / "snapshots" / "c5fdb5ccb189668d56333f77ba2629f4cd7535f4" / "audio_tokenizer"
 )
 
 m = HiggsAudioV2TokenizerModel.from_pretrained(SNAPSHOT, device_map="cpu")

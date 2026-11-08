@@ -9,7 +9,7 @@ registrado (texto, tempo, VRAM, RTF, áudio) e aparece ao vivo no painel
 /admin.
 
 Uso:
-    D:\\omnivoice-pt\\.venv\\Scripts\\python.exe tools\\api_server.py
+    .venv\\Scripts\\python.exe tools\\api_server.py
 Depois:
     - Painel de admin: http://SEU_IP:5180/admin  (senha impressa no console
       na primeira execução, salva em build/admin_token.txt)
@@ -62,14 +62,16 @@ TOKENIZER_BIN = BUILD / "tokenizer.bin"
 # ---------------------------------------------------------------------
 CONFIG_PATH = BUILD / "server_config.json"
 
-# Cada GPU tem seu build do runtime C (kernels CUDA da arquitetura certa).
+# Builds do runtime C. "universal" (build_cuda_universal.bat) traz código
+# nativo da GTX 950 à RTX 50; "default" (build_cuda.bat) só o da placa para a
+# qual foi compilado. Na mesma placa os dois geram o mesmo áudio.
 BUILD_DIRS = {
-    "default": ROOT / "cmake-build-cuda",               # RTX 50xx / genérico (sm120)
-    "rtx4060": ROOT / "cmake-build-cuda-rtx4060-sm89",  # RTX 4060 (Ada, sm89)
+    "default": ROOT / "cmake-build-cuda",
+    "universal": ROOT / "cmake-build-cuda-universal",
 }
 
 DEFAULT_CONFIG = {
-    "gpu_target": "auto",     # "auto" | "default" | "rtx4060"
+    "gpu_target": "auto",     # "auto" | "default" | "universal"
     "workers": 1,             # gerações simultâneas (workers do modelo ativo)
     "keep_loaded": True,      # manter o modelo sempre na VRAM
     "idle_minutes": 10,       # se keep_loaded=False: descarrega após N min ocioso
@@ -127,10 +129,12 @@ def save_config():
 
 
 def resolved_gpu_target() -> str:
-    """Alvo efetivo: resolve 'auto' pela GPU detectada."""
+    """Alvo efetivo: 'auto' prefere o universal, que roda em qualquer placa
+    suportada; o default só roda na placa para a qual foi compilado."""
     t = CONFIG.get("gpu_target", "auto")
     if t == "auto":
-        t = "rtx4060" if "4060" in GPU_NAME else "default"
+        universal_exe = BUILD_DIRS["universal"] / "bin" / "omnivoice-pt.exe"
+        t = "universal" if universal_exe.exists() else "default"
     return t if t in BUILD_DIRS else "default"
 
 
@@ -1420,8 +1424,8 @@ audio{height:30px;width:220px}
         <label>GPU alvo (runtime C)</label>
         <select id="cfg-target">
           <option value="auto">Automático (detecta a GPU)</option>
-          <option value="default">RTX 50xx / genérico (sm120)</option>
-          <option value="rtx4060">RTX 4060 (sm89)</option>
+          <option value="universal">Universal (GTX 950 a RTX 50)</option>
+          <option value="default">Build desta máquina (build_cuda.bat)</option>
         </select>
       </div>
       <div class="cfg-item">
@@ -2021,7 +2025,7 @@ if __name__ == "__main__":
     print(f"runtime C       : {c_exe()}")
     if not c_exe().exists():
         print("AVISO: o binário deste build NÃO existe — compile-o antes de gerar.")
-        print("       RTX 4060: rode  build_cuda_rtx4060.bat omnivoice-pt")
+        print("       rode  build_cuda_universal.bat omnivoice-pt  (ou build_cuda.bat)")
 
     # Descarregador de ociosidade (só age quando keep_loaded=off).
     threading.Thread(target=_idle_monitor, daemon=True).start()

@@ -1,7 +1,7 @@
 @echo off
 chcp 65001 >nul
 title OmniVoice-PT - Servico (LINK FIXO)
-cd /d D:\omnivoice-pt
+cd /d "%~dp0"
 
 if not exist ngrok-dominio.txt (
   echo Voce ainda nao configurou o link fixo.

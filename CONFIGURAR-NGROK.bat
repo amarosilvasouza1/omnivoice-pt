@@ -1,7 +1,7 @@
 @echo off
 chcp 65001 >nul
 title Configurar link fixo (ngrok) - so 1 vez
-cd /d D:\omnivoice-pt
+cd /d "%~dp0"
 
 echo ============================================================
 echo    Configuracao do LINK FIXO (ngrok)

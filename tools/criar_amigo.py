@@ -16,7 +16,7 @@ import sys
 import time
 from pathlib import Path
 
-ROOT = Path(r"D:\omnivoice-pt")
+ROOT = Path(__file__).resolve().parent.parent
 DB = ROOT / "build" / "api.db"
 
 name = (sys.argv[1] if len(sys.argv) > 1 else "amigo").strip() or "amigo"

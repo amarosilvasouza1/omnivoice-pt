@@ -90,10 +90,10 @@ CMake manualmente. Depois execute `ctest` dentro de `build-vulkan`.
 
 ## API
 
-O arquivo `tools/api_server.py` acompanha o pacote como fonte editável. A cópia
-atual do servidor foi criada para a instalação original em `D:\omnivoice-pt` e
-para builds CUDA; altere `ROOT` e `BUILD_DIRS` no começo do arquivo para apontar
-ao diretório e ao executável Vulkan compilado pelo seu amigo.
+O arquivo `tools/api_server.py` acompanha o pacote como fonte editável. Ele
+encontra a pasta do projeto sozinho, mas aponta para builds CUDA; para usar o
+build Vulkan, altere `BUILD_DIRS` no começo do arquivo para a pasta onde o
+executável Vulkan foi compilado.
 
 ## Licenças e responsabilidade
 

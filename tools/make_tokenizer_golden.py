@@ -10,9 +10,9 @@ from pathlib import Path
 
 from transformers import AutoTokenizer
 
-SNAPSHOT = (
-    r"D:\omnivoice-pt\hf-cache\hub\models--k2-fsa--OmniVoice"
-    r"\snapshots\c5fdb5ccb189668d56333f77ba2629f4cd7535f4"
+SNAPSHOT = str(
+    Path(__file__).resolve().parent.parent / "hf-cache" / "hub"
+    / "models--k2-fsa--OmniVoice" / "snapshots" / "c5fdb5ccb189668d56333f77ba2629f4cd7535f4"
 )
 
 CASES = [
@@ -40,7 +40,7 @@ def main():
         out.append({"text": text, "ids": ids})
         print(f"{len(ids):4d} tokens | {text[:60]}")
 
-    path = Path(r"D:\omnivoice-pt\build\tokenizer_golden.json")
+    path = Path(__file__).resolve().parent.parent / "build" / "tokenizer_golden.json"
     path.write_text(
         json.dumps(out, ensure_ascii=False, indent=1), encoding="utf-8"
     )
@@ -51,7 +51,7 @@ def main():
     #   n_cases x { text_len u32 | text utf8 | n_ids u32 | ids u32[] }
     import struct
 
-    bin_path = Path(r"D:\omnivoice-pt\build\tokenizer_golden.bin")
+    bin_path = Path(__file__).resolve().parent.parent / "build" / "tokenizer_golden.bin"
     with open(bin_path, "wb") as f:
         f.write(b"OVGT")
         f.write(struct.pack("<I", len(out)))

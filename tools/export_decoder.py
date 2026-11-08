@@ -7,7 +7,7 @@ Também grava um vetor de teste dourado (códigos aleatórios fixos + áudio
 resultante) para validar o port C do decoder amostra a amostra.
 
 Uso:
-    python tools/export_decoder.py --out D:/omnivoice-pt/build
+    python tools/export_decoder.py --out build
 """
 
 import argparse

@@ -1,7 +1,7 @@
 @echo off
 chcp 65001 >nul
 title Criar link para um amigo
-cd /d D:\omnivoice-pt
+cd /d "%~dp0"
 
 echo ============================================================
 echo    Criar um link exclusivo para um amigo

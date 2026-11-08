@@ -18,7 +18,7 @@ O que este script faz (roda UMA vez, em CPU):
      para o runtime C) e remap.bin (int32[vocab] id->linha ou -1).
 
 Uso:
-    python tools/export.py --out D:/omnivoice-pt/build
+    python tools/export.py --out build
 """
 
 import argparse

@@ -316,7 +316,7 @@ Runtime C medido em `--serve` (mediana de 3 rodadas quentes, após 1 de aquecime
 | áudio gerado | 10,32 s | 10,12 s | 10,12 s | 10,12 s |
 | RTF | 0,222 | **0,157** | 0,160 | 0,162 |
 
-**Clonagem de voz** (referência `gazz.wav`, 21,2 s). O original recebe o WAV e
+**Clonagem de voz** (referência de 21,2 s). O original recebe o WAV e
 roda Whisper + encoder na hora; o runtime C recebe o `.ovprompt` pré-computado.
 
 | | PyTorch fp16 + ref_audio | C q8_0 + .ovprompt |

@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 import sys
+from pathlib import Path
 
 from transformers import AutoTokenizer
 
-SNAPSHOT = (
-    r"D:\omnivoice-pt\hf-cache\hub\models--k2-fsa--OmniVoice"
-    r"\snapshots\c5fdb5ccb189668d56333f77ba2629f4cd7535f4"
+SNAPSHOT = str(
+    Path(__file__).resolve().parent.parent / "hf-cache" / "hub"
+    / "models--k2-fsa--OmniVoice" / "snapshots" / "c5fdb5ccb189668d56333f77ba2629f4cd7535f4"
 )
 
 t = AutoTokenizer.from_pretrained(SNAPSHOT)

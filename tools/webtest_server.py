@@ -4,7 +4,7 @@ PyTorch original. Digite um texto na página e ouça os dois na hora, com
 VRAM e tempo medidos de verdade.
 
 Uso:
-    D:\\omnivoice-pt\\.venv\\Scripts\\python.exe tools\\webtest_server.py
+    .venv\\Scripts\\python.exe tools\\webtest_server.py
 Depois abra http://127.0.0.1:5175
 """
 
@@ -22,7 +22,7 @@ from flask import Flask, jsonify, request, send_from_directory
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "omnivoice-src"))
 
-ROOT = Path(r"D:\omnivoice-pt")
+ROOT = Path(__file__).resolve().parent.parent
 BUILD = ROOT / "build"
 AUDIO_DIR = BUILD / "webtest_audio"
 AUDIO_DIR.mkdir(exist_ok=True)
@@ -55,9 +55,9 @@ if _VOICES_DIR.exists():
         print(f"vozes clonadas de data/voices/: {_loaded} "
               f"({', '.join(n for n in VOICE_PROMPTS)})")
 
-SNAPSHOT = (
-    r"D:\omnivoice-pt\hf-cache\hub\models--k2-fsa--OmniVoice"
-    r"\snapshots\c5fdb5ccb189668d56333f77ba2629f4cd7535f4"
+SNAPSHOT = str(
+    Path(__file__).resolve().parent.parent / "hf-cache" / "hub"
+    / "models--k2-fsa--OmniVoice" / "snapshots" / "c5fdb5ccb189668d56333f77ba2629f4cd7535f4"
 )
 
 app = Flask(__name__)
