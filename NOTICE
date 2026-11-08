@@ -1,0 +1,50 @@
+OmniVoice-PT
+Copyright 2026 Amaro
+
+O código deste repositório (src/, tests/, tools/, scripts) é distribuído
+sob a Apache License 2.0 (arquivo LICENSE).
+
+Este projeto não é afiliado à k2-fsa, à Xiaomi, à Boson AI, à Meta nem à
+Alibaba (Qwen). Os nomes delas aparecem aqui só para dar o crédito exigido
+pelas licenças.
+
+------------------------------------------------------------------------
+Componentes de terceiros
+------------------------------------------------------------------------
+
+OmniVoice (k2-fsa) — https://github.com/k2-fsa/OmniVoice
+  Código: Apache License 2.0, Copyright 2026 Xiaomi Corp.
+  Pesos do modelo: CC BY-NC 4.0 (uso não comercial), por causa dos dados de
+  treino (Emilia). Os modelos omnivoice-pt-*.gguf são adaptações desses
+  pesos e seguem a mesma licença: https://creativecommons.org/licenses/by-nc/4.0/
+  Revisão usada: k2-fsa/OmniVoice @ c5fdb5ccb189668d56333f77ba2629f4cd7535f4
+
+Qwen3-0.6B (Alibaba Cloud) — https://huggingface.co/Qwen/Qwen3-0.6B
+  Modelo base do OmniVoice. Apache License 2.0.
+
+ggml — https://github.com/ggml-org/ggml
+  MIT License, Copyright (c) 2023-2026 The ggml authors
+  (licenses/GGML-MIT-LICENSE.txt)
+
+Higgs Audio 2 tokenizer (Boson AI) — distribuído dentro do OmniVoice
+  O arquivo higgs-audio-2-decoder-f16.gguf é o decoder desse tokenizer,
+  convertido para GGUF. Localmente, o tools/export_decoder.py grava esse
+  mesmo arquivo como build/higgs-decoder-f16.gguf; o nome com "Higgs Audio 2"
+  é o usado na distribuição. Ele segue a Boson Higgs Audio 2 Community License
+  (licenses/BOSON-HIGGS-AUDIO-2-COMMUNITY-LICENSE.txt), que incorpora a
+  Meta Llama 3 Community License
+  (licenses/META-LLAMA-3-COMMUNITY-LICENSE.txt) e a Política de Uso
+  Aceitável do Llama 3 (https://llama.meta.com/llama3/use-policy).
+
+  Built with Higgs Materials licensed from Boson AI USA, Inc., Copyright
+  Boson AI USA, Inc., All Rights Reserved and Meta Llama 3 licensed under the
+  Meta Llama 3 Community License, Copyright Meta Platforms, Inc., All Rights
+  Reserved.
+
+  Built with Meta Llama 3.
+
+  Meta Llama 3 is licensed under the Meta Llama 3 Community License,
+  Copyright © Meta Platforms, Inc. All Rights Reserved.
+
+  Boson Higgs Audio 2 is licensed under the Boson Community License,
+  Copyright © Boson AI USA, Inc. All Rights Reserved.
